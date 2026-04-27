@@ -7,7 +7,6 @@ import { CheckCircle2, UserCheck, Shield, FileText } from "lucide-react";
 export default function GuidePage() {
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 space-y-12 animate-in fade-in duration-700">
-      {/* Header Section */}
       <div className="text-center space-y-2">
         <h1 className="text-4xl font-black text-neutral-900 dark:text-neutral-50 tracking-tight uppercase">
           Matdaata Margdarshika / Election Guide
@@ -17,7 +16,6 @@ export default function GuidePage() {
         </p>
       </div>
 
-      {/* Info Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="border-2 shadow-sm">
           <CardHeader>
@@ -76,57 +74,55 @@ export default function GuidePage() {
         </Card>
       </div>
 
-      {/* Accordion Section - Roles */}
       <div className="bg-white dark:bg-neutral-950 rounded-3xl p-6 md:p-10 border-2 border-neutral-200 dark:border-neutral-800 shadow-md">
         <h2 className="text-2xl font-black mb-8 flex items-center gap-3 uppercase tracking-tighter">
           <Shield className="text-blue-700" size={28} /> Key Roles in an Election
         </h2>
 
-        {/* FIXED: collapsible prop is now a string "true" to avoid DOM attribute warnings */}
-        <Accordion type="single" collapsible="true" className="w-full space-y-2">
+        <Accordion className="w-full space-y-2">
 
-          <AccordionItem value="item-1" className="border-b">
-            <AccordionTrigger className="text-lg font-bold hover:text-blue-700 transition-colors">
+          <AccordionItem value="item-1">
+            <AccordionTrigger className="text-lg font-bold">
               Election Commission of India (ECI)
             </AccordionTrigger>
-            <AccordionContent className="text-neutral-600 dark:text-neutral-400 text-base leading-relaxed py-4 px-2">
-              The ECI is an autonomous constitutional authority responsible for administering election processes in India. They ensure elections are free, fair, and conducted on schedule. They register political parties, enforce the Model Code of Conduct, and oversee the entire voting and counting mechanism.
+            <AccordionContent>
+              The ECI is an autonomous constitutional authority responsible for administering election processes in India. They ensure elections are free, fair, and conducted on schedule.
             </AccordionContent>
           </AccordionItem>
 
-          <AccordionItem value="item-2" className="border-b">
-            <AccordionTrigger className="text-lg font-bold hover:text-blue-700 transition-colors">
+          <AccordionItem value="item-2">
+            <AccordionTrigger className="text-lg font-bold">
               Candidates & Political Parties
             </AccordionTrigger>
-            <AccordionContent className="text-neutral-600 dark:text-neutral-400 text-base leading-relaxed py-4 px-2">
-              Candidates represent their vision and promises to the citizens. Every candidate must file a nomination and follow the strict guidelines set by the ECI, including expenditure limits and campaigning rules.
+            <AccordionContent>
+              Candidates represent their vision and promises to the citizens. Every candidate must follow the strict guidelines set by the ECI, including expenditure limits.
             </AccordionContent>
           </AccordionItem>
 
-          <AccordionItem value="item-3" className="border-b">
-            <AccordionTrigger className="text-lg font-bold hover:text-blue-700 transition-colors">
+          <AccordionItem value="item-3">
+            <AccordionTrigger className="text-lg font-bold">
               Voters (The Citizens)
             </AccordionTrigger>
-            <AccordionContent className="text-neutral-600 dark:text-neutral-400 text-base leading-relaxed py-4 px-2">
-              Voters are the foundation of our democracy. It is both a right and a national duty for every eligible citizen to cast their vote independently, secretly, and without any external influence.
+            <AccordionContent>
+              Voters are the foundation of our democracy. It is both a right and a national duty for every eligible citizen to cast their vote independently and secretly.
             </AccordionContent>
           </AccordionItem>
 
-          <AccordionItem value="item-4" className="border-none">
-            <AccordionTrigger className="text-lg font-bold hover:text-blue-700 transition-colors">
+          <AccordionItem value="item-4">
+            <AccordionTrigger className="text-lg font-bold">
               Polling & Presiding Officers
             </AccordionTrigger>
-            <AccordionContent className="text-neutral-600 dark:text-neutral-400 text-base leading-relaxed py-4 px-2">
-              These officials are on-ground heroes who manage the polling booths. The Presiding Officer ensures the sanctity of the booth, verifies voter identity, manages the EVM/VVPAT, and guarantees that every voter can cast their vote safely.
+            <AccordionContent>
+              These officials manage the polling booths. The Presiding Officer ensures the sanctity of the booth, verifies voter identity, and manages the EVM/VVPAT.
             </AccordionContent>
           </AccordionItem>
 
         </Accordion>
       </div>
 
-      <div className="text-center pt-6">
-        <p className="text-xs font-bold text-neutral-400 uppercase tracking-widest">
-          Aapka Vote, Aapki Taqat | Election Commission of India - Simulation Guide
+      <div className="text-center pt-6 opacity-60">
+        <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
+          Aapka Vote, Aapki Taqat | Election Commission Simulation Guide
         </p>
       </div>
     </div>
