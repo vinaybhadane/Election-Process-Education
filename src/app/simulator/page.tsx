@@ -341,7 +341,7 @@ export default function SimulatorPage() {
               { label: "Press the blue button", active: phase === "idle" },
               { label: "Light turns ON + Beep sounds", active: phase === "selected" || phase === "beeping" },
               { label: "VVPAT slip appears (7 secs)", active: phase === "vvpat" },
-              { label: "Vote recorded securely", active: phase === "voted" },
+              { label: "Vote recorded securely", active: false },
             ].map((s, i) => (
               <div key={i} className={`flex items-center gap-3 text-xs font-medium transition-all ${s.active ? "text-blue-700 dark:text-blue-400 font-bold" : "text-neutral-500"}`}>
                 <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${s.active ? "bg-blue-600 text-white" : "bg-neutral-100 dark:bg-neutral-800 text-neutral-500"}`}>
