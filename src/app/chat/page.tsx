@@ -1,52 +1,129 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Loader2, Trash2, Landmark, Languages, Info } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import {
+  Send, Bot, User, Loader2, Trash2, Landmark, Languages,
+  ChevronDown, Mic, Volume2, BookOpen, Zap, Shield,
+  ArrowRight, RefreshCw, AlertCircle, CheckCircle2, Info
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import ReactMarkdown from "react-markdown"; // For professional text formatting
+import ReactMarkdown from "react-markdown";
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface Message {
   id: string;
   role: "user" | "ai";
   content: string;
+  timestamp: Date;
 }
 
+type Mode = "beginner" | "standard" | "expert";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const MODE_CONFIG: Record<Mode, { label: string; icon: React.ReactNode; color: string; desc: string; bg: string }> = {
+  beginner: {
+    label: "Beginner",
+    icon: <BookOpen size={14} />,
+    color: "text-green-700",
+    desc: "Simple language, step-by-step",
+    bg: "bg-green-50 border-green-200 text-green-800",
+  },
+  standard: {
+    label: "Standard",
+    icon: <Zap size={14} />,
+    color: "text-blue-700",
+    desc: "Balanced, clear guidance",
+    bg: "bg-blue-50 border-blue-200 text-blue-800",
+  },
+  expert: {
+    label: "Expert",
+    icon: <Shield size={14} />,
+    color: "text-purple-700",
+    desc: "Legal details, official rules",
+    bg: "bg-purple-50 border-purple-200 text-purple-800",
+  },
+};
+
 const QUICK_SUGGESTIONS = [
-  { label: "Voter ID Registration", query: "Voter ID card kaise banayein? Step by step batayein." },
-  { label: "Check Election Dates", query: "Mere area mein election kab hai? Kaise check karu?" },
-  { label: "EVM & VVPAT Guide", query: "EVM machine par vote kaise daalte hain?" },
-  { label: "Eligibility", query: "Voting ke liye kya eligibility honi chahiye?" },
+  { label: "🗳️ First-Time Voter", query: "I am voting for the very first time. Please guide me step by step from eligibility to casting my vote." },
+  { label: "📋 Voter Registration", query: "Voter ID card kaise banayein? Form 6 kya hota hai? Step by step batayein." },
+  { label: "📍 Find Polling Booth", query: "Apna polling booth kaise dhundein? Mujhe process batayein." },
+  { label: "🆔 Lost Voter ID", query: "Maine apna Voter ID kho diya hai. Ab main voting ke liye kya document use kar sakta hoon?" },
+  { label: "🏙️ Moved to New City", query: "Main ek naye sheher mein shift ho gaya hoon. Voter list mein apna address kaise update karein?" },
+  { label: "♿ PwD Facilities", query: "Main differently-abled hoon. Voting ke liye mujhe kya special facilities milti hain?" },
+  { label: "📅 Election Dates", query: "Election dates aur schedule kaise check karein?" },
+  { label: "📱 EVM Voting Steps", query: "EVM machine par vote kaise daalte hain? VVPAT kya hota hai?" },
 ];
+
+const GUIDED_JOURNEY_STEPS = [
+  { step: 1, label: "Check Eligibility", query: "Am I eligible to vote? What are the basic requirements?" },
+  { step: 2, label: "Register as Voter", query: "How to register as a voter? Explain Form 6 process." },
+  { step: 3, label: "Verify Voter Status", query: "How to verify if my name is in the voter list?" },
+  { step: 4, label: "Find Polling Booth", query: "How to find my designated polling booth?" },
+  { step: 5, label: "Voting Process", query: "What is the step-by-step process to vote on election day?" },
+];
+
+const MODE_PREFIXES: Record<Mode, string> = {
+  beginner: "[BEGINNER MODE] Please use very simple language, short sentences, and explain everything like I am a first-time voter. Use emoji to make it friendly. ",
+  standard: "",
+  expert: "[EXPERT MODE] Please provide detailed, technical guidance including legal references (RPA 1950/1951), form numbers, ECI circulars, and official procedures where relevant. ",
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
-      id: "1",
+      id: "welcome",
       role: "ai",
-      content: "Jai Hind, Nagrik! Main aapka **Nirvachan Sahayak** hoon. Main ek Election Officer ki tarah aapko voting process samjhane mein madad karunga. Aap mujhse Hindi, English ya Marathi mein sawal pooch sakte hain.",
+      content:
+        "**नमस्ते, Nagrik! Jai Hind! 🇮🇳**\n\nMain aapka **Nirvachan Sahayak** hoon — Election Commission of India ka Official AI Helpdesk.\n\nMain aapko voting process, registration, election timeline, EVM, aur har election-related sawal ka jawab de sakta hoon.\n\n**Aap kya jaanna chahte hain?**\n- 🗳️ Pehli baar vote dena chahte hain?\n- 📋 Voter ID registration?\n- 📍 Polling booth dhundna?\n- 🆔 Voter ID kho gaya?\n\nKoi bhi sawal puchein — Hindi, English, ya Hinglish mein!\n\n*ℹ️ Neeche Quick Help chips use karein ya seedha type karein.*\n\n🇮🇳 *Aapka Vote, Aapki Taqat!*",
+      timestamp: new Date(),
     },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [mode, setMode] = useState<Mode>("standard");
+  const [showModeMenu, setShowModeMenu] = useState(false);
+  const [showJourney, setShowJourney] = useState(false);
+  const [currentJourneyStep, setCurrentJourneyStep] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
+  // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isLoading]);
 
+  // Build history for API (only user/ai pairs, skip welcome)
+  const buildHistory = useCallback(() => {
+    return messages
+      .filter((m) => m.id !== "welcome")
+      .map((m) => ({
+        role: m.role === "user" ? "user" : "model",
+        parts: [{ text: m.content }],
+      }));
+  }, [messages]);
+
   const handleSend = async (e?: React.FormEvent, customQuery?: string) => {
     if (e) e.preventDefault();
-    const query = customQuery || input;
-    if (!query.trim() || isLoading) return;
+    const query = (customQuery || input).trim();
+    if (!query || isLoading) return;
+
+    setError(null);
+    const prefixedQuery = MODE_PREFIXES[mode] + query;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: query,
+      content: query, // Display without prefix
+      timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -54,137 +131,273 @@ export default function ChatPage() {
     setIsLoading(true);
 
     try {
-      const firstUserIndex = [...messages, userMessage].findIndex(m => m.role === "user");
-      const filteredMessages = firstUserIndex === -1 ? [] : [...messages, userMessage].slice(firstUserIndex, -1);
-
-      const chatHistory = filteredMessages.map(m => ({
-        role: m.role === "user" ? "user" : "model",
-        parts: [{ text: m.content }]
-      }));
-
+      const history = buildHistory();
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: query, history: chatHistory }),
+        body: JSON.stringify({ message: prefixedQuery, history }),
       });
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Server Error");
 
-      setMessages((prev) => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: "ai",
-        content: data.reply,
-      }]);
-    } catch (error: any) {
-      setMessages((prev) => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: "ai",
-        content: `Error: ${error.message}. Kripya check karein ki server restart kiya gaya hai.`,
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          role: "ai",
+          content: data.reply,
+          timestamp: new Date(),
+        },
+      ]);
+    } catch (err: any) {
+      setError(err.message || "Connection failed. Please try again.");
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          role: "ai",
+          content: `⚠️ **Sahayak Desk Error:** ${err.message}\n\nKripya kuch der baad try karein, ya direct visit karein: [voters.eci.gov.in](https://voters.eci.gov.in) | Helpline: **1950**`,
+          timestamp: new Date(),
+        },
+      ]);
     } finally {
       setIsLoading(false);
+      inputRef.current?.focus();
     }
   };
 
-  return (
-    <div className="max-w-5xl mx-auto h-[calc(100vh-6rem)] flex flex-col p-2 md:p-6 font-sans">
+  const handleReset = () => {
+    setMessages((prev) => [prev[0]]);
+    setCurrentJourneyStep(0);
+    setError(null);
+  };
 
-      {/* Official Header */}
-      <div className="flex flex-col md:flex-row items-center justify-between mb-6 bg-white dark:bg-neutral-900 p-4 rounded-2xl border-b-4 border-blue-600 shadow-sm gap-4">
+  const handleJourneyStep = (step: (typeof GUIDED_JOURNEY_STEPS)[0], index: number) => {
+    setCurrentJourneyStep(index + 1);
+    handleSend(undefined, step.query);
+  };
+
+  // Format timestamp
+  const formatTime = (date: Date) =>
+    date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+
+  return (
+    <div className="max-w-5xl mx-auto h-[calc(100vh-5rem)] flex flex-col gap-0 font-sans">
+
+      {/* ── Official Header ───────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 py-3 bg-white dark:bg-neutral-900 border border-b-4 border-blue-600 rounded-t-2xl shadow-sm gap-3 flex-shrink-0">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-blue-700 rounded-xl text-white shadow-lg">
-            <Landmark size={28} />
+          <div className="p-2.5 bg-blue-700 rounded-xl text-white shadow-lg shadow-blue-200 dark:shadow-none">
+            <Landmark size={26} />
           </div>
           <div>
-            <h1 className="text-xl md:text-2xl font-black text-neutral-800 dark:text-neutral-50 tracking-tight">VOTER SAHAYAK</h1>
-            <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-xs uppercase tracking-widest">
-              <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
-              Official AI Helpdesk
+            <h1 className="text-lg md:text-xl font-black text-neutral-800 dark:text-neutral-50 tracking-tight leading-tight">
+              VOTER SAHAYAK
+            </h1>
+            <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-[11px] uppercase tracking-widest">
+              <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+              Official AI Helpdesk — Election Commission of India
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center gap-1 text-xs font-bold text-neutral-400 bg-neutral-100 px-3 py-1 rounded-full">
-            <Languages size={14} /> HI / EN / MR
+
+        {/* Controls */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Mode Switcher */}
+          <div className="relative">
+            <button
+              id="mode-switcher"
+              onClick={() => setShowModeMenu((v) => !v)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${MODE_CONFIG[mode].bg}`}
+            >
+              {MODE_CONFIG[mode].icon}
+              {MODE_CONFIG[mode].label}
+              <ChevronDown size={12} className={showModeMenu ? "rotate-180 transition-transform" : "transition-transform"} />
+            </button>
+            {showModeMenu && (
+              <div className="absolute right-0 top-10 z-50 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-2xl shadow-xl p-2 w-56">
+                {(Object.keys(MODE_CONFIG) as Mode[]).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => { setMode(m); setShowModeMenu(false); }}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all hover:bg-neutral-50 dark:hover:bg-neutral-800 ${mode === m ? "bg-neutral-100 dark:bg-neutral-800 font-bold" : ""}`}
+                  >
+                    <span className={MODE_CONFIG[m].color}>{MODE_CONFIG[m].icon}</span>
+                    <div>
+                      <p className="text-xs font-bold">{MODE_CONFIG[m].label} Mode</p>
+                      <p className="text-[10px] text-neutral-500">{MODE_CONFIG[m].desc}</p>
+                    </div>
+                    {mode === m && <CheckCircle2 size={14} className="ml-auto text-blue-600" />}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          <Button variant="outline" size="sm" onClick={() => setMessages([messages[0]])} className="text-neutral-500 border-neutral-300 rounded-xl hover:bg-red-50 hover:text-red-600 transition-all">
-            <Trash2 size={16} className="mr-2" /> Reset
+
+          {/* Language Badge */}
+          <div className="hidden sm:flex items-center gap-1 text-[11px] font-bold text-neutral-400 bg-neutral-100 dark:bg-neutral-800 px-3 py-1.5 rounded-full border border-neutral-200 dark:border-neutral-700">
+            <Languages size={13} /> HI / EN / MR
+          </div>
+
+          {/* Reset */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReset}
+            className="text-neutral-500 border-neutral-300 rounded-xl hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-all text-xs"
+          >
+            <Trash2 size={13} className="mr-1" /> Reset
           </Button>
         </div>
       </div>
 
-      <Card className="flex-1 flex flex-col overflow-hidden border-none shadow-2xl rounded-[2rem] bg-neutral-50/50 dark:bg-neutral-900/50 backdrop-blur-md">
+      {/* ── Guided Journey Toggle ─────────────────────────────────────────── */}
+      <div className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20 border-x border-orange-200 dark:border-orange-800 px-4 py-2 flex-shrink-0">
+        <button
+          onClick={() => setShowJourney((v) => !v)}
+          className="flex items-center gap-2 text-xs font-bold text-orange-700 dark:text-orange-400 hover:text-orange-900 transition-colors"
+        >
+          <ArrowRight size={14} className={showJourney ? "rotate-90 transition-transform" : "transition-transform"} />
+          🗺️ Guided Journey: Step-by-Step Voter Flow
+          <span className="ml-2 px-2 py-0.5 bg-orange-200 dark:bg-orange-900 text-orange-800 dark:text-orange-300 rounded-full text-[10px]">
+            NEW
+          </span>
+        </button>
+        {showJourney && (
+          <div className="mt-3 flex flex-wrap gap-2 pb-1">
+            {GUIDED_JOURNEY_STEPS.map((step, i) => (
+              <button
+                key={step.step}
+                onClick={() => handleJourneyStep(step, i)}
+                disabled={isLoading}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all ${
+                  currentJourneyStep > i
+                    ? "bg-green-100 border-green-300 text-green-700 dark:bg-green-900/30 dark:border-green-700"
+                    : currentJourneyStep === i
+                    ? "bg-orange-500 border-orange-500 text-white shadow-md shadow-orange-200 dark:shadow-none"
+                    : "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 text-neutral-600 hover:border-orange-300 hover:text-orange-700"
+                } disabled:opacity-50`}
+              >
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${
+                  currentJourneyStep > i ? "bg-green-500 text-white" : "bg-neutral-200 dark:bg-neutral-700 text-neutral-600"
+                }`}>
+                  {currentJourneyStep > i ? "✓" : step.step}
+                </span>
+                {step.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
-        {/* Chat Content */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8" ref={scrollRef}>
+      {/* ── Chat Area ─────────────────────────────────────────────────────── */}
+      <Card className="flex-1 flex flex-col overflow-hidden border-x border-b-0 border-neutral-200 dark:border-neutral-800 rounded-none rounded-b-none shadow-none bg-neutral-50/70 dark:bg-neutral-900/70">
+
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6" ref={scrollRef}>
           {messages.map((msg) => (
-            <div key={msg.id} className={`flex gap-4 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"} animate-in fade-in slide-in-from-bottom-4 duration-500`}>
-              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${msg.role === "user" ? "bg-blue-600 text-white" : "bg-white dark:bg-neutral-800 border-2 border-blue-100"
-                }`}>
-                {msg.role === "user" ? <User size={20} /> : <Bot size={20} className="text-blue-700" />}
+            <div
+              key={msg.id}
+              className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"} animate-in fade-in slide-in-from-bottom-3 duration-400`}
+            >
+              {/* Avatar */}
+              <div
+                className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 shadow-md mt-1 ${
+                  msg.role === "user"
+                    ? "bg-blue-600 text-white"
+                    : "bg-white dark:bg-neutral-800 border-2 border-blue-100 dark:border-blue-900"
+                }`}
+              >
+                {msg.role === "user" ? <User size={18} /> : <Bot size={18} className="text-blue-700 dark:text-blue-400" />}
               </div>
-              <div className={`px-5 py-4 rounded-3xl max-w-[85%] md:max-w-[70%] shadow-sm ${msg.role === "user"
-                  ? "bg-blue-600 text-white rounded-tr-none"
-                  : "bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-tl-none text-neutral-800 dark:text-neutral-200"
-                }`}>
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+
+              {/* Bubble */}
+              <div className={`flex flex-col gap-1 max-w-[85%] md:max-w-[72%] ${msg.role === "user" ? "items-end" : "items-start"}`}>
+                <div
+                  className={`px-5 py-4 rounded-3xl shadow-sm text-sm leading-relaxed ${
+                    msg.role === "user"
+                      ? "bg-blue-600 text-white rounded-tr-sm"
+                      : "bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-tl-sm"
+                  }`}
+                >
+                  <div className={`prose prose-sm max-w-none ${msg.role === "user" ? "prose-invert" : "dark:prose-invert"}`}>
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  </div>
                 </div>
+                <span className={`text-[10px] text-neutral-400 font-medium px-2 ${msg.role === "user" ? "text-right" : "text-left"}`}>
+                  {msg.role === "ai" ? "Nirvachan Sahayak" : "You"} · {formatTime(msg.timestamp)}
+                </span>
               </div>
             </div>
           ))}
 
+          {/* Typing Indicator */}
           {isLoading && (
-            <div className="flex gap-4 items-center">
-              <div className="w-10 h-10 rounded-2xl bg-white dark:bg-neutral-800 flex items-center justify-center border-2 border-blue-50">
-                <Bot size={20} className="text-blue-400" />
+            <div className="flex gap-3 items-center animate-in fade-in duration-300">
+              <div className="w-9 h-9 rounded-2xl bg-white dark:bg-neutral-800 flex items-center justify-center border-2 border-blue-100 dark:border-blue-900 shadow-md">
+                <Bot size={18} className="text-blue-400" />
               </div>
-              <div className="bg-white dark:bg-neutral-800 border border-dashed border-blue-300 px-6 py-3 rounded-3xl flex items-center gap-3">
+              <div className="bg-white dark:bg-neutral-800 border border-dashed border-blue-300 dark:border-blue-700 px-5 py-3 rounded-3xl rounded-tl-sm flex items-center gap-3">
                 <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                <span className="text-xs font-black text-blue-600 uppercase tracking-widest">Sahayak is typing...</span>
+                <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">Sahayak is responding...</span>
               </div>
             </div>
           )}
         </div>
 
-        {/* Interaction Bar */}
-        <div className="p-4 md:p-6 bg-white dark:bg-neutral-900 border-t border-neutral-100 dark:border-neutral-800">
+        {/* ── Input Area ──────────────────────────────────────────────────── */}
+        <div className="p-3 md:p-5 bg-white dark:bg-neutral-900 border-t border-neutral-100 dark:border-neutral-800 flex-shrink-0">
 
-          {/* Quick Action Chips */}
-          <div className="flex flex-wrap gap-2 mb-4 overflow-x-auto pb-2">
+          {/* Error Banner */}
+          {error && (
+            <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl text-xs text-red-700 dark:text-red-400">
+              <AlertCircle size={14} />
+              <span className="font-medium">{error}</span>
+              <button onClick={() => setError(null)} className="ml-auto"><RefreshCw size={13} /></button>
+            </div>
+          )}
+
+          {/* Quick Chips */}
+          <div className="flex gap-2 mb-3 overflow-x-auto pb-2 scrollbar-hide snap-x">
             {QUICK_SUGGESTIONS.map((s, i) => (
               <button
                 key={i}
                 onClick={() => handleSend(undefined, s.query)}
-                className="text-[11px] font-bold bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white border border-blue-100 px-4 py-2 rounded-full transition-all whitespace-nowrap shadow-sm"
+                disabled={isLoading}
+                className="text-[11px] font-bold bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 hover:bg-blue-600 hover:text-white border border-blue-100 dark:border-blue-800 px-3 py-1.5 rounded-full transition-all whitespace-nowrap shadow-sm snap-start disabled:opacity-50 flex-shrink-0"
               >
                 {s.label}
               </button>
             ))}
           </div>
 
-          <form onSubmit={handleSend} className="flex gap-3 items-center bg-neutral-100 dark:bg-neutral-800 p-2 rounded-[1.5rem] focus-within:ring-2 ring-blue-500 transition-all shadow-inner">
-            <div className="pl-3 text-neutral-400">
-              <Info size={18} />
+          {/* Text Input */}
+          <form onSubmit={handleSend} className="flex gap-2 items-center bg-neutral-100 dark:bg-neutral-800 p-1.5 rounded-2xl focus-within:ring-2 ring-blue-400 transition-all">
+            <div className="pl-2 text-neutral-400 shrink-0">
+              <Info size={16} />
             </div>
-            <Input
+            <input
+              ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Officer se sawal puchein (e.g. How to vote?)..."
-              className="flex-1 bg-transparent border-none shadow-none focus-visible:ring-0 text-neutral-700 dark:text-neutral-200"
+              placeholder="Apna sawal puchein — Hindi, English, ya Hinglish mein..."
+              className="flex-1 bg-transparent border-none outline-none text-sm text-neutral-700 dark:text-neutral-200 placeholder:text-neutral-400 py-2"
               disabled={isLoading}
+              aria-label="Type your question about the election process"
             />
             <Button
               type="submit"
               disabled={isLoading || !input.trim()}
-              className="bg-blue-700 hover:bg-blue-800 text-white rounded-2xl h-11 w-11 p-0 shadow-lg transition-transform active:scale-90"
+              className="bg-blue-700 hover:bg-blue-800 text-white rounded-xl h-10 w-10 p-0 shadow-md transition-transform active:scale-90 shrink-0 disabled:opacity-40"
+              aria-label="Send message"
             >
-              <Send size={20} />
+              {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
             </Button>
           </form>
-          <p className="text-[10px] text-center mt-3 text-neutral-400 font-medium uppercase tracking-widest">
-            Aapka Vote, Aapki Taqat | Election Commission of India - Simulation
+
+          {/* Footer Note */}
+          <p className="text-[10px] text-center mt-2.5 text-neutral-400 font-medium">
+            🇮🇳 Aapka Vote, Aapki Taqat &nbsp;·&nbsp; voters.eci.gov.in &nbsp;·&nbsp; Helpline: 1950
           </p>
         </div>
       </Card>
