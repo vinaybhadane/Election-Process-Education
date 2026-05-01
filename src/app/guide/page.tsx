@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import EligibilityChecker from "@/components/EligibilityChecker";
 
 // ─── Data ──────────────────────────────────────────────────────────────────
 
@@ -292,6 +293,11 @@ export default function GuidePage() {
       {/* ── 1. Eligibility ─────────────────────────────────────────────────── */}
       <section id="eligibility">
         <SectionHeader title="Voter Eligibility" subtitle="Check if you qualify to vote in Indian Elections" />
+
+        {/* Interactive Eligibility Checker */}
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-3xl p-6 md:p-8 mb-8 shadow-sm">
+          <EligibilityChecker />
+        </div>
         <div className="bg-white dark:bg-neutral-900 rounded-3xl p-8 border-2 border-neutral-100 dark:border-neutral-800 shadow-sm space-y-4">
           {ELIGIBILITY_CHECKLIST.map((item) => (
             <div key={item.id} className="flex items-start gap-4 p-4 rounded-2xl bg-green-50/50 dark:bg-green-950/10 border border-green-100 dark:border-green-900">

@@ -3,8 +3,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Send, Bot, User, Loader2, Trash2, Landmark, Languages,
-  ChevronDown, Mic, Volume2, BookOpen, Zap, Shield,
-  ArrowRight, RefreshCw, AlertCircle, CheckCircle2, Info
+  ChevronDown, BookOpen, Zap, Shield, ArrowRight,
+  RefreshCw, AlertCircle, CheckCircle2, Copy, Check,
+  MapPin, CalendarDays, ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -17,33 +18,34 @@ interface Message {
   role: "user" | "ai";
   content: string;
   timestamp: Date;
+  mode?: Mode;
 }
 
 type Mode = "beginner" | "standard" | "expert";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MODE_CONFIG: Record<Mode, { label: string; icon: React.ReactNode; color: string; desc: string; bg: string }> = {
+const MODE_CONFIG: Record<Mode, { label: string; icon: React.ReactNode; desc: string; bg: string; ring: string }> = {
   beginner: {
     label: "Beginner",
     icon: <BookOpen size={14} />,
-    color: "text-green-700",
     desc: "Simple language, step-by-step",
-    bg: "bg-green-50 border-green-200 text-green-800",
+    bg: "bg-green-50 border-green-300 text-green-800 dark:bg-green-950/30 dark:border-green-700 dark:text-green-300",
+    ring: "ring-green-400",
   },
   standard: {
     label: "Standard",
     icon: <Zap size={14} />,
-    color: "text-blue-700",
     desc: "Balanced, clear guidance",
-    bg: "bg-blue-50 border-blue-200 text-blue-800",
+    bg: "bg-blue-50 border-blue-300 text-blue-800 dark:bg-blue-950/30 dark:border-blue-700 dark:text-blue-300",
+    ring: "ring-blue-400",
   },
   expert: {
     label: "Expert",
     icon: <Shield size={14} />,
-    color: "text-purple-700",
-    desc: "Legal details, official rules",
-    bg: "bg-purple-50 border-purple-200 text-purple-800",
+    desc: "Legal refs, official rules",
+    bg: "bg-purple-50 border-purple-300 text-purple-800 dark:bg-purple-950/30 dark:border-purple-700 dark:text-purple-300",
+    ring: "ring-purple-400",
   },
 };
 
@@ -72,7 +74,96 @@ const MODE_PREFIXES: Record<Mode, string> = {
   expert: "[EXPERT MODE] Please provide detailed, technical guidance including legal references (RPA 1950/1951), form numbers, ECI circulars, and official procedures where relevant. ",
 };
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Copy Button ──────────────────────────────────────────────────────────────
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <button
+      onClick={handleCopy}
+      title="Copy response"
+      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+    >
+      {copied ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
+    </button>
+  );
+}
+
+// ─── Integration Chips ────────────────────────────────────────────────────────
+
+function IntegrationChips({ content }: { content: string }) {
+  const lower = content.toLowerCase();
+  const chips = [];
+  if (lower.includes("polling booth") || lower.includes("booth location"))
+    chips.push({ icon: MapPin, label: "Find Booth on Maps", href: "https://maps.google.com/?q=polling+booth+near+me", color: "text-red-600" });
+  if (lower.includes("election date") || lower.includes("polling day") || lower.includes("matdaan"))
+    chips.push({ icon: CalendarDays, label: "Add Election Reminder", href: "https://calendar.google.com/calendar/r/eventedit", color: "text-blue-600" });
+  if (lower.includes("register") || lower.includes("form 6") || lower.includes("voters.eci"))
+    chips.push({ icon: ExternalLink, label: "Register at voters.eci.gov.in", href: "https://voters.eci.gov.in", color: "text-orange-600" });
+
+  if (chips.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-700">
+      {chips.map((c) => {
+        const Icon = c.icon;
+        return (
+          <a
+            key={c.label}
+            href={c.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-full text-[11px] font-bold text-neutral-600 dark:text-neutral-300 hover:border-blue-400 hover:text-blue-600 transition-all shadow-sm"
+          >
+            <Icon size={11} className={c.color} />
+            {c.label}
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Message Bubble ────────────────────────────────────────────────────────────
+
+function MessageBubble({ msg, formatTime }: { msg: Message; formatTime: (d: Date) => string }) {
+  const isAI = msg.role === "ai";
+  return (
+    <div className={`flex gap-3 ${isAI ? "flex-row" : "flex-row-reverse"} animate-in fade-in slide-in-from-bottom-3 duration-400`}>
+      {/* Avatar */}
+      <div className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 shadow-md mt-1 ${isAI ? "bg-white dark:bg-neutral-800 border-2 border-blue-100 dark:border-blue-900" : "bg-blue-600 text-white"}`}>
+        {isAI ? <Bot size={18} className="text-blue-700 dark:text-blue-400" /> : <User size={18} />}
+      </div>
+      {/* Bubble */}
+      <div className={`group flex flex-col gap-1 max-w-[85%] md:max-w-[72%] ${isAI ? "items-start" : "items-end"}`}>
+        <div className={`px-5 py-4 rounded-3xl shadow-sm text-sm leading-relaxed ${isAI ? "bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-tl-sm" : "bg-blue-600 text-white rounded-tr-sm"}`}>
+          {isAI ? (
+            <>
+              <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:font-black prose-strong:text-neutral-900 dark:prose-strong:text-neutral-100">
+                <ReactMarkdown>{msg.content}</ReactMarkdown>
+              </div>
+              <IntegrationChips content={msg.content} />
+            </>
+          ) : (
+            <p>{msg.content}</p>
+          )}
+        </div>
+        <div className={`flex items-center gap-2 px-2 ${isAI ? "flex-row" : "flex-row-reverse"}`}>
+          <span className="text-[10px] text-neutral-400 font-medium">
+            {isAI ? "Nirvachan Sahayak" : "You"} · {formatTime(msg.timestamp)}
+          </span>
+          {isAI && <CopyButton text={msg.content} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ────────────────────────────────────────────────────────────
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([
@@ -94,22 +185,16 @@ export default function ChatPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-scroll to bottom on new messages
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, isLoading]);
 
-  // Build history for API (only user/ai pairs, skip welcome)
-  const buildHistory = useCallback(() => {
-    return messages
+  const buildHistory = useCallback(() =>
+    messages
       .filter((m) => m.id !== "welcome")
-      .map((m) => ({
-        role: m.role === "user" ? "user" : "model",
-        parts: [{ text: m.content }],
-      }));
-  }, [messages]);
+      .map((m) => ({ role: m.role === "user" ? "user" : "model", parts: [{ text: m.content }] })),
+    [messages]
+  );
 
   const handleSend = async (e?: React.FormEvent, customQuery?: string) => {
     if (e) e.preventDefault();
@@ -118,14 +203,7 @@ export default function ChatPage() {
 
     setError(null);
     const prefixedQuery = MODE_PREFIXES[mode] + query;
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: query, // Display without prefix
-      timestamp: new Date(),
-    };
-
+    const userMessage: Message = { id: Date.now().toString(), role: "user", content: query, timestamp: new Date(), mode };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
@@ -135,57 +213,37 @@ export default function ChatPage() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: prefixedQuery, history }),
+        body: JSON.stringify({ message: prefixedQuery, history, mode }),
       });
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Server Error");
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          role: "ai",
-          content: data.reply,
-          timestamp: new Date(),
-        },
-      ]);
+      setMessages((prev) => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: "ai",
+        content: data.reply,
+        timestamp: new Date(),
+        mode,
+      }]);
     } catch (err: any) {
+      const fallback = err.fallback || `⚠️ **Sahayak Desk Error:** ${err.message}\n\nKripya kuch der baad try karein, ya direct visit karein: [voters.eci.gov.in](https://voters.eci.gov.in) | Helpline: **1950**`;
       setError(err.message || "Connection failed. Please try again.");
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          role: "ai",
-          content: `⚠️ **Sahayak Desk Error:** ${err.message}\n\nKripya kuch der baad try karein, ya direct visit karein: [voters.eci.gov.in](https://voters.eci.gov.in) | Helpline: **1950**`,
-          timestamp: new Date(),
-        },
-      ]);
+      setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "ai", content: fallback, timestamp: new Date() }]);
     } finally {
       setIsLoading(false);
       inputRef.current?.focus();
     }
   };
 
-  const handleReset = () => {
-    setMessages((prev) => [prev[0]]);
-    setCurrentJourneyStep(0);
-    setError(null);
-  };
-
-  const handleJourneyStep = (step: (typeof GUIDED_JOURNEY_STEPS)[0], index: number) => {
-    setCurrentJourneyStep(index + 1);
-    handleSend(undefined, step.query);
-  };
-
-  // Format timestamp
-  const formatTime = (date: Date) =>
-    date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  const handleReset = () => { setMessages((prev) => [prev[0]]); setCurrentJourneyStep(0); setError(null); };
+  const handleJourneyStep = (step: (typeof GUIDED_JOURNEY_STEPS)[0], index: number) => { setCurrentJourneyStep(index + 1); handleSend(undefined, step.query); };
+  const formatTime = (date: Date) => date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
 
   return (
     <div className="max-w-5xl mx-auto h-[calc(100vh-5rem)] flex flex-col gap-0 font-sans">
 
-      {/* ── Official Header ───────────────────────────────────────────────── */}
+      {/* ── Official Header ─────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 py-3 bg-white dark:bg-neutral-900 border border-b-4 border-blue-600 rounded-t-2xl shadow-sm gap-3 flex-shrink-0">
         <div className="flex items-center gap-4">
           <div className="p-2.5 bg-blue-700 rounded-xl text-white shadow-lg shadow-blue-200 dark:shadow-none">
@@ -197,7 +255,7 @@ export default function ChatPage() {
             </h1>
             <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-[11px] uppercase tracking-widest">
               <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-              Official AI Helpdesk — Election Commission of India
+              AI Helpdesk — Election Commission of India
             </div>
           </div>
         </div>
@@ -210,20 +268,23 @@ export default function ChatPage() {
               id="mode-switcher"
               onClick={() => setShowModeMenu((v) => !v)}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${MODE_CONFIG[mode].bg}`}
+              aria-label="Switch response mode"
             >
               {MODE_CONFIG[mode].icon}
               {MODE_CONFIG[mode].label}
               <ChevronDown size={12} className={showModeMenu ? "rotate-180 transition-transform" : "transition-transform"} />
             </button>
             {showModeMenu && (
-              <div className="absolute right-0 top-10 z-50 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-2xl shadow-xl p-2 w-56">
+              <div className="absolute right-0 top-10 z-50 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-2xl shadow-xl p-2 w-60">
+                <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 px-3 pb-2">Response Mode</p>
                 {(Object.keys(MODE_CONFIG) as Mode[]).map((m) => (
                   <button
                     key={m}
+                    id={`mode-${m}`}
                     onClick={() => { setMode(m); setShowModeMenu(false); }}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all hover:bg-neutral-50 dark:hover:bg-neutral-800 ${mode === m ? "bg-neutral-100 dark:bg-neutral-800 font-bold" : ""}`}
                   >
-                    <span className={MODE_CONFIG[m].color}>{MODE_CONFIG[m].icon}</span>
+                    <span>{MODE_CONFIG[m].icon}</span>
                     <div>
                       <p className="text-xs font-bold">{MODE_CONFIG[m].label} Mode</p>
                       <p className="text-[10px] text-neutral-500">{MODE_CONFIG[m].desc}</p>
@@ -242,35 +303,39 @@ export default function ChatPage() {
 
           {/* Reset */}
           <Button
+            id="chat-reset-btn"
             variant="outline"
             size="sm"
             onClick={handleReset}
             className="text-neutral-500 border-neutral-300 rounded-xl hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-all text-xs"
+            aria-label="Reset conversation"
           >
             <Trash2 size={13} className="mr-1" /> Reset
           </Button>
         </div>
       </div>
 
-      {/* ── Guided Journey Toggle ─────────────────────────────────────────── */}
+      {/* ── Guided Journey Toggle ──────────────────────────────────────────── */}
       <div className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20 border-x border-orange-200 dark:border-orange-800 px-4 py-2 flex-shrink-0">
         <button
+          id="guided-journey-toggle"
           onClick={() => setShowJourney((v) => !v)}
           className="flex items-center gap-2 text-xs font-bold text-orange-700 dark:text-orange-400 hover:text-orange-900 transition-colors"
+          aria-expanded={showJourney}
         >
           <ArrowRight size={14} className={showJourney ? "rotate-90 transition-transform" : "transition-transform"} />
           🗺️ Guided Journey: Step-by-Step Voter Flow
-          <span className="ml-2 px-2 py-0.5 bg-orange-200 dark:bg-orange-900 text-orange-800 dark:text-orange-300 rounded-full text-[10px]">
-            NEW
-          </span>
+          <span className="ml-2 px-2 py-0.5 bg-orange-200 dark:bg-orange-900 text-orange-800 dark:text-orange-300 rounded-full text-[10px]">5 STEPS</span>
         </button>
         {showJourney && (
           <div className="mt-3 flex flex-wrap gap-2 pb-1">
             {GUIDED_JOURNEY_STEPS.map((step, i) => (
               <button
                 key={step.step}
+                id={`journey-step-${step.step}`}
                 onClick={() => handleJourneyStep(step, i)}
                 disabled={isLoading}
+                aria-label={`Journey step ${step.step}: ${step.label}`}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all ${
                   currentJourneyStep > i
                     ? "bg-green-100 border-green-300 text-green-700 dark:bg-green-900/30 dark:border-green-700"
@@ -279,9 +344,7 @@ export default function ChatPage() {
                     : "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 text-neutral-600 hover:border-orange-300 hover:text-orange-700"
                 } disabled:opacity-50`}
               >
-                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${
-                  currentJourneyStep > i ? "bg-green-500 text-white" : "bg-neutral-200 dark:bg-neutral-700 text-neutral-600"
-                }`}>
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${currentJourneyStep > i ? "bg-green-500 text-white" : "bg-neutral-200 dark:bg-neutral-700 text-neutral-600"}`}>
                   {currentJourneyStep > i ? "✓" : step.step}
                 </span>
                 {step.label}
@@ -291,45 +354,10 @@ export default function ChatPage() {
         )}
       </div>
 
-      {/* ── Chat Area ─────────────────────────────────────────────────────── */}
-      <Card className="flex-1 flex flex-col overflow-hidden border-x border-b-0 border-neutral-200 dark:border-neutral-800 rounded-none rounded-b-none shadow-none bg-neutral-50/70 dark:bg-neutral-900/70">
-
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6" ref={scrollRef}>
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"} animate-in fade-in slide-in-from-bottom-3 duration-400`}
-            >
-              {/* Avatar */}
-              <div
-                className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 shadow-md mt-1 ${
-                  msg.role === "user"
-                    ? "bg-blue-600 text-white"
-                    : "bg-white dark:bg-neutral-800 border-2 border-blue-100 dark:border-blue-900"
-                }`}
-              >
-                {msg.role === "user" ? <User size={18} /> : <Bot size={18} className="text-blue-700 dark:text-blue-400" />}
-              </div>
-
-              {/* Bubble */}
-              <div className={`flex flex-col gap-1 max-w-[85%] md:max-w-[72%] ${msg.role === "user" ? "items-end" : "items-start"}`}>
-                <div
-                  className={`px-5 py-4 rounded-3xl shadow-sm text-sm leading-relaxed ${
-                    msg.role === "user"
-                      ? "bg-blue-600 text-white rounded-tr-sm"
-                      : "bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-tl-sm"
-                  }`}
-                >
-                  <div className={`prose prose-sm max-w-none ${msg.role === "user" ? "prose-invert" : "dark:prose-invert"}`}>
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
-                  </div>
-                </div>
-                <span className={`text-[10px] text-neutral-400 font-medium px-2 ${msg.role === "user" ? "text-right" : "text-left"}`}>
-                  {msg.role === "ai" ? "Nirvachan Sahayak" : "You"} · {formatTime(msg.timestamp)}
-                </span>
-              </div>
-            </div>
-          ))}
+      {/* ── Chat Area ───────────────────────────────────────────────────────── */}
+      <Card className="flex-1 flex flex-col overflow-hidden border-x border-b-0 border-neutral-200 dark:border-neutral-800 rounded-none shadow-none bg-neutral-50/70 dark:bg-neutral-900/70">
+        <div id="chat-message-list" className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6" ref={scrollRef}>
+          {messages.map((msg) => <MessageBubble key={msg.id} msg={msg} formatTime={formatTime} />)}
 
           {/* Typing Indicator */}
           {isLoading && (
@@ -345,25 +373,27 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* ── Input Area ──────────────────────────────────────────────────── */}
+        {/* ── Input Area ─────────────────────────────────────────────────── */}
         <div className="p-3 md:p-5 bg-white dark:bg-neutral-900 border-t border-neutral-100 dark:border-neutral-800 flex-shrink-0">
 
           {/* Error Banner */}
           {error && (
             <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl text-xs text-red-700 dark:text-red-400">
               <AlertCircle size={14} />
-              <span className="font-medium">{error}</span>
-              <button onClick={() => setError(null)} className="ml-auto"><RefreshCw size={13} /></button>
+              <span className="font-medium flex-1">{error}</span>
+              <button onClick={() => setError(null)} aria-label="Dismiss error"><RefreshCw size={13} /></button>
             </div>
           )}
 
           {/* Quick Chips */}
-          <div className="flex gap-2 mb-3 overflow-x-auto pb-2 scrollbar-hide snap-x">
+          <div id="quick-suggestions" className="flex gap-2 mb-3 overflow-x-auto pb-2 snap-x scrollbar-hide">
             {QUICK_SUGGESTIONS.map((s, i) => (
               <button
                 key={i}
+                id={`quick-chip-${i}`}
                 onClick={() => handleSend(undefined, s.query)}
                 disabled={isLoading}
+                aria-label={`Quick question: ${s.label}`}
                 className="text-[11px] font-bold bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 hover:bg-blue-600 hover:text-white border border-blue-100 dark:border-blue-800 px-3 py-1.5 rounded-full transition-all whitespace-nowrap shadow-sm snap-start disabled:opacity-50 flex-shrink-0"
               >
                 {s.label}
@@ -372,20 +402,24 @@ export default function ChatPage() {
           </div>
 
           {/* Text Input */}
-          <form onSubmit={handleSend} className="flex gap-2 items-center bg-neutral-100 dark:bg-neutral-800 p-1.5 rounded-2xl focus-within:ring-2 ring-blue-400 transition-all">
-            <div className="pl-2 text-neutral-400 shrink-0">
-              <Info size={16} />
+          <form id="chat-form" onSubmit={handleSend} className="flex gap-2 items-center bg-neutral-100 dark:bg-neutral-800 p-1.5 rounded-2xl focus-within:ring-2 ring-blue-400 transition-all">
+            <div className="pl-2 text-neutral-400 shrink-0 text-xs font-bold hidden sm:block">
+              {MODE_CONFIG[mode].icon}
             </div>
             <input
+              id="chat-input"
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Apna sawal puchein — Hindi, English, ya Hinglish mein..."
               className="flex-1 bg-transparent border-none outline-none text-sm text-neutral-700 dark:text-neutral-200 placeholder:text-neutral-400 py-2"
               disabled={isLoading}
-              aria-label="Type your question about the election process"
+              aria-label="Type your election question"
+              maxLength={1000}
             />
+            <span className="text-[10px] text-neutral-300 font-mono hidden sm:block">{input.length}/1000</span>
             <Button
+              id="chat-send-btn"
               type="submit"
               disabled={isLoading || !input.trim()}
               className="bg-blue-700 hover:bg-blue-800 text-white rounded-xl h-10 w-10 p-0 shadow-md transition-transform active:scale-90 shrink-0 disabled:opacity-40"
@@ -395,9 +429,9 @@ export default function ChatPage() {
             </Button>
           </form>
 
-          {/* Footer Note */}
+          {/* Footer */}
           <p className="text-[10px] text-center mt-2.5 text-neutral-400 font-medium">
-            🇮🇳 Aapka Vote, Aapki Taqat &nbsp;·&nbsp; voters.eci.gov.in &nbsp;·&nbsp; Helpline: 1950
+            🇮🇳 Aapka Vote, Aapki Taqat &nbsp;·&nbsp; voters.eci.gov.in &nbsp;·&nbsp; Helpline: 1950 &nbsp;·&nbsp; Mode: <strong>{mode}</strong>
           </p>
         </div>
       </Card>

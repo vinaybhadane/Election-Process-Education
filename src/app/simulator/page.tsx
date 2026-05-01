@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { CheckCircle2, ShieldAlert, Info, ArrowLeft, ArrowRight, Volume2, RotateCcw, ChevronRight, BookOpen } from "lucide-react";
+import { CheckCircle2, ShieldAlert, Info, ArrowRight, Volume2, RotateCcw, ChevronRight, BookOpen, Timer, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
@@ -118,6 +118,21 @@ export default function SimulatorPage() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [activeLight, setActiveLight] = useState<number | null>(null);
+  const [attempts, setAttempts] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Start timer when voting begins
+  useEffect(() => {
+    if (phase === "selected") {
+      setElapsed(0);
+      timerRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
+    }
+    if (phase === "voted" || phase === "idle") {
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [phase]);
 
   const selectedCandidate = CANDIDATES.find((c) => c.id === selectedId) || null;
   const isProcessing = phase === "selected" || phase === "beeping" || phase === "vvpat";
@@ -127,23 +142,12 @@ export default function SimulatorPage() {
     setSelectedId(id);
     setActiveLight(id);
     setPhase("selected");
-
-    // Phase 2: Beep after 800ms
     setTimeout(() => setPhase("beeping"), 800);
-    // Phase 3: Show VVPAT after 1.5s
     setTimeout(() => setPhase("vvpat"), 1500);
   };
 
-  const handleVVPATDone = () => {
-    setPhase("voted");
-    setActiveLight(null);
-  };
-
-  const handleReset = () => {
-    setPhase("idle");
-    setSelectedId(null);
-    setActiveLight(null);
-  };
+  const handleVVPATDone = () => { setPhase("voted"); setAttempts((a) => a + 1); setActiveLight(null); };
+  const handleReset = () => { setPhase("idle"); setSelectedId(null); setActiveLight(null); setElapsed(0); };
 
   if (phase === "voted") {
     return (
@@ -156,13 +160,20 @@ export default function SimulatorPage() {
         </div>
 
         <div className="space-y-3">
-          <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-neutral-900 dark:text-neutral-50">
-            मतदान सफल!
-          </h1>
+          <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-neutral-900 dark:text-neutral-50">मतदान सफल!</h1>
           <p className="text-xl font-bold text-green-700 dark:text-green-400">Vote Cast Successfully!</p>
-          <p className="text-neutral-600 dark:text-neutral-400 text-lg">
-            आपका मत सुरक्षित रूप से दर्ज कर लिया गया है।
-          </p>
+          <p className="text-neutral-600 dark:text-neutral-400 text-lg">आपका मत सुरक्षित रूप से दर्ज कर लिया गया है।</p>
+
+          {/* Stats Row */}
+          <div className="flex gap-4 justify-center flex-wrap mt-4">
+            <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl text-sm font-bold text-blue-700 dark:text-blue-400">
+              <Timer size={16} /> {elapsed}s voting time
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-xl text-sm font-bold text-purple-700 dark:text-purple-400">
+              <Trophy size={16} /> Attempt #{attempts}
+            </div>
+          </div>
+
           {selectedCandidate && (
             <div className="inline-flex items-center gap-3 px-6 py-3 bg-green-50 dark:bg-green-950/30 border-2 border-green-200 dark:border-green-800 rounded-2xl mt-2">
               <span className="text-3xl">{selectedCandidate.symbol}</span>
@@ -174,13 +185,19 @@ export default function SimulatorPage() {
           )}
         </div>
 
-        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-2xl px-6 py-4 text-sm text-blue-800 dark:text-blue-400 max-w-md">
-          <p className="font-bold mb-1">What happens next in a real election:</p>
-          <p className="text-xs leading-relaxed">The EVM is sealed, stored under security, and opened on counting day in the presence of candidates and election agents. Every vote is tallied and the Returning Officer declares the result.</p>
+        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-2xl px-6 py-4 text-sm text-blue-800 dark:text-blue-400 max-w-md text-left">
+          <p className="font-bold mb-2">What happens next in a real election:</p>
+          <ul className="space-y-1 text-xs leading-relaxed">
+            <li>1️⃣ The EVM is sealed under security by the Presiding Officer.</li>
+            <li>2️⃣ EVMs are stored in a secure strong-room until counting day.</li>
+            <li>3️⃣ On counting day, EVMs are opened in front of candidates & agents.</li>
+            <li>4️⃣ Every vote is tallied and the Returning Officer declares the result.</li>
+            <li>5️⃣ Live results are updated on results.eci.gov.in during counting.</li>
+          </ul>
         </div>
 
         <div className="flex gap-4 flex-wrap justify-center">
-          <Button onClick={handleReset} variant="outline" className="border-2 border-neutral-300 rounded-2xl px-6 py-5 font-bold gap-2">
+          <Button id="simulator-try-again" onClick={handleReset} variant="outline" className="border-2 border-neutral-300 rounded-2xl px-6 py-5 font-bold gap-2">
             <RotateCcw size={18} /> Try Again
           </Button>
           <Link href="/guide">

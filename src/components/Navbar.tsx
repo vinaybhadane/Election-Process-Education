@@ -3,17 +3,37 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Vote, BotMessageSquare, GraduationCap, Clock, LayoutDashboard, Menu, X } from "lucide-react";
-import { useState } from "react";
+import {
+  Vote, BotMessageSquare, GraduationCap, Clock,
+  LayoutDashboard, Menu, X, Moon, Sun,
+} from "lucide-react";
+import { useState, useEffect } from "react";
 
 export default function Navbar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [dark, setDark] = useState(false);
+
+  // Sync dark mode with <html> class
+  useEffect(() => {
+    const saved = localStorage.getItem("theme");
+    if (saved === "dark" || (!saved && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+      document.documentElement.classList.add("dark");
+      setDark(true);
+    }
+  }, []);
+
+  const toggleDark = () => {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.classList.toggle("dark", next);
+    localStorage.setItem("theme", next ? "dark" : "light");
+  };
 
   const links = [
-    { name: "Mukhya Prishth", href: "/", icon: LayoutDashboard }, // Home
+    { name: "Home", href: "/", icon: LayoutDashboard },
     { name: "Timeline", href: "/timeline", icon: Clock },
-    { name: "Margdarshika", href: "/guide", icon: GraduationCap }, // Guide
+    { name: "Guide", href: "/guide", icon: GraduationCap },
     { name: "AI Sahayak", href: "/chat", icon: BotMessageSquare },
     { name: "Simulator", href: "/simulator", icon: Vote },
   ];
@@ -23,7 +43,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
 
-          {/* Brand Logo Section */}
+          {/* Brand */}
           <Link href="/" className="flex items-center gap-3 group transition-transform active:scale-95">
             <div className="p-2 bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-200 dark:shadow-none group-hover:bg-blue-600 transition-colors">
               <Vote size={22} strokeWidth={2.5} />
@@ -38,7 +58,7 @@ export default function Navbar() {
             </div>
           </Link>
 
-          {/* Desktop Navigation */}
+          {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-1 bg-neutral-100/50 dark:bg-neutral-900/50 p-1.5 rounded-2xl border border-neutral-200/50 dark:border-neutral-800/50">
             {links.map((link) => {
               const Icon = link.icon;
@@ -61,11 +81,24 @@ export default function Navbar() {
             })}
           </div>
 
-          {/* Mobile Menu Toggle */}
-          <div className="md:hidden">
+          {/* Right Controls */}
+          <div className="flex items-center gap-2">
+            {/* Dark Mode Toggle */}
             <button
+              id="dark-mode-toggle"
+              onClick={toggleDark}
+              aria-label="Toggle dark mode"
+              className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all"
+            >
+              {dark ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+
+            {/* Mobile Menu Toggle */}
+            <button
+              id="mobile-menu-toggle"
               onClick={() => setIsOpen(!isOpen)}
-              className="p-2 rounded-lg text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+              className="md:hidden p-2 rounded-lg text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+              aria-label="Toggle mobile menu"
             >
               {isOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -73,9 +106,9 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Navigation Menu */}
+      {/* Mobile Navigation */}
       {isOpen && (
-        <div className="md:hidden absolute top-16 left-0 w-full bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 animate-in slide-in-from-top-5">
+        <div className="md:hidden absolute top-16 left-0 w-full bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 animate-in slide-in-from-top-5 z-50">
           <div className="px-4 pt-2 pb-6 space-y-1">
             {links.map((link) => {
               const Icon = link.icon;
@@ -89,7 +122,7 @@ export default function Navbar() {
                     "flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-bold uppercase transition-all",
                     isActive
                       ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                      : "text-neutral-600 dark:text-neutral-400"
+                      : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
                   )}
                 >
                   <Icon size={18} />
